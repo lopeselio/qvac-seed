@@ -28,9 +28,8 @@ QVAC can already load `pear://` sources, but nothing helps you *create* them. qv
 ## Install
 
 ```bash
-npm install -g github:lopeselio/qvac-seed
-# or use the library
-npm install github:lopeselio/qvac-seed
+npm install -g qvac-seed   # CLI
+npm install qvac-seed      # library
 ```
 
 Requires Node.js 20+.
