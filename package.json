@@ -1,0 +1,49 @@
+{
+  "name": "qvac-seed",
+  "version": "0.1.0",
+  "description": "Publish, seed and fetch GGUF models and LoRA adapters peer-to-peer as pear:// links that the QVAC SDK loads directly.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "bin": {
+    "qvac-seed": "./bin/qvac-seed.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "qvac",
+    "tether",
+    "hyperdrive",
+    "hyperswarm",
+    "p2p",
+    "gguf",
+    "lora",
+    "local-ai"
+  ],
+  "author": "lopeselio",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lopeselio/qvac-seed.git"
+  },
+  "dependencies": {
+    "corestore": "^7.16.1",
+    "hyperdrive": "^13.3.4",
+    "hyperswarm": "^4.17.2"
+  },
+  "devDependencies": {
+    "hyperdht": "^6.36.0"
+  }
+}
