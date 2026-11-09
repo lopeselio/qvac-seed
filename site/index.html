@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>qvac-seed: share local AI models and adapters peer-to-peer</title>
+<meta name="description" content="Publish .gguf models, LoRA adapters and translation bundles as pear:// links the QVAC SDK loads directly. Seeded over Hyperswarm, verified by SHA-256. No Hugging Face account, no S3 bucket.">
+<meta property="og:title" content="qvac-seed: share local AI models and adapters peer-to-peer">
+<meta property="og:description" content="Publish .gguf models, LoRA adapters and translation bundles as pear:// links the QVAC SDK loads directly. Seeded over Hyperswarm, verified by SHA-256. No Hugging Face account, no S3 bucket.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23d97706'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23fff'/%3E%3Ccircle cx='7' cy='9' r='2.6' fill='%23fff'/%3E%3Ccircle cx='25' cy='9' r='2.6' fill='%23fff'/%3E%3Ccircle cx='16' cy='26' r='2.6' fill='%23fff'/%3E%3Cpath d='M9 10.5 13 14M23 10.5 19 14M16 20v3.5' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap"><nav><a href="https://qvac.lopeselio.online">← QVAC projects</a><div class="links"><a href="https://github.com/lopeselio/qvac-seed">GitHub</a><a href="https://github.com/lopeselio/qvac-seed#readme">README</a></div></nav>
+<header class="hero">
+  <span class="badge">● Peer-to-peer · Hyperdrive + Hyperswarm</span>
+  <h1>qvac-seed</h1>
+  <p class="lead">Share local AI models and LoRA adapters peer-to-peer, as <code>pear://</code> links the QVAC SDK loads directly. Think BitTorrent for on-device AI: publish once, and anyone with the link downloads it from you or any other peer that has it. No Hugging Face account, no S3 bucket, no bandwidth bill.</p>
+  <div class="cta"><a class="btn primary" href="#run">Use it</a><a class="btn" href="https://github.com/lopeselio/qvac-seed">Source on GitHub</a></div>
+</header>
+<section>
+  <pre>$ qvac-seed publish ./pirate-lora.gguf --meta base=QWEN3_600M_INST_Q4
+pear://fd4ec0ea48…822a/pirate-lora.gguf  (lora, 1.9 MB, sha256 3b034103b34a…)
+Seeding collection "default" — Ctrl+C to stop.
+
+<span class="c">// on any other machine</span>
+const id = await loadModel({ modelSrc: 'pear://fd4ec0ea48…822a/model.gguf', modelType: 'llm' })</pre>
+</section>
+<section>
+  <h2>Why</h2>
+  <div class="grid">
+    <div class="card"><h3>Stable links</h3><p>Files go into a named Hyperdrive collection, so links survive restarts and re-publishes.</p></div>
+    <div class="card"><h3>No server</h3><p>Seeded over Hyperswarm: Noise-encrypted connections, NAT hole-punching, no infrastructure.</p></div>
+    <div class="card"><h3>Verified</h3><p>Every drive carries a manifest with each file's size and SHA-256. <code>fetch</code> refuses a file that doesn't match.</p></div>
+    <div class="card"><h3>Look before you download</h3><p><code>ls</code> shows what a link holds without pulling gigabytes.</p></div>
+  </div>
+</section>
+<section>
+  <h2>In an app: Pocket Tune's Share tab</h2>
+  <div class="pair">
+    <figure class="shot"><img src="https://pocket-tune.qvac.lopeselio.online/docs/sharing/share-seeding.png" alt="Pocket Tune publishing an adapter with qvac-seed and seeding to one peer"></figure>
+    <figure class="shot"><img src="https://pocket-tune.qvac.lopeselio.online/docs/sharing/compare-received.png" alt="The receiving Pocket Tune comparing the shared adapter with the base model"></figure>
+  </div>
+  <figcaption><a href="https://pocket-tune.qvac.lopeselio.online">Pocket Tune</a> uses qvac-seed to share fine-tuned adapters between people: lookup in about 2 s, a 20 MB adapter downloaded and checked in 0.3 s.</figcaption>
+</section>
+<section id="run">
+  <h2>Use it</h2>
+  <pre>npm install -g qvac-seed
+qvac-seed publish model.gguf --collection my-models    <span class="c"># prints pear:// links, keeps seeding</span>
+qvac-seed ls pear://&lt;key&gt;                               <span class="c"># what a link holds</span>
+qvac-seed fetch pear://&lt;key&gt;/model.gguf -o model.gguf   <span class="c"># download, SHA-256 checked</span></pre>
+  <p>Also a library (<code>import { publishFile, fetchFile } from 'qvac-seed'</code>). Requires Node.js 20+.</p>
+</section>
+<footer><span>Open source, Apache-2.0.</span><span>Built on <a href="https://docs.qvac.tether.io/">Tether QVAC</a>.</span><span><a href="https://github.com/lopeselio/qvac-seed">github.com/lopeselio/qvac-seed</a></span><span><a href="https://qvac.lopeselio.online">All QVAC projects</a></span></footer></div>
+</body>
+</html>
