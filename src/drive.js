@@ -90,8 +90,12 @@ export async function publishFile (drive, file, { as, meta = {}, onProgress } = 
  * Download a file from a drive to disk, verifying size and sha256 against the
  * manifest. Writes to a temp file and only renames on success, so a bad
  * download never leaves a plausible-looking model on disk.
+ *
+ * The download stops as soon as it passes the size the manifest declares, so a
+ * drive can't fill the disk by sending more than it promised. `maxBytes` lets
+ * the caller refuse a large file before any of it is downloaded.
  */
-export async function fetchFile (drive, path, outFile, { onProgress, requireManifest = true } = {}) {
+export async function fetchFile (drive, path, outFile, { onProgress, requireManifest = true, maxBytes = Infinity } = {}) {
   const drivePath = toDrivePath(path)
   const manifest = await readManifest(drive)
   const entry = manifest && findEntry(manifest, drivePath)
@@ -101,15 +105,19 @@ export async function fetchFile (drive, path, outFile, { onProgress, requireMani
   const fileEntry = await drive.entry(drivePath, { wait: true })
   if (!fileEntry) throw new Error(`${drivePath} not found in drive`)
 
+  const total = entry?.size ?? fileEntry.value.blob?.byteLength ?? 0
+  if (total > maxBytes) throw new Error(`${drivePath} is ${total} bytes, over the ${maxBytes} byte limit`)
+
   await mkdir(dirname(outFile), { recursive: true })
   const tmp = `${outFile}.part`
   const h = createHash('sha256')
   let got = 0
-  const total = entry?.size ?? fileEntry.value.blob?.byteLength ?? 0
   const tap = new Transform({
     transform (chunk, _enc, cb) {
-      h.update(chunk)
       got += chunk.length
+      if (entry && got > entry.size) return cb(new Error(`${drivePath} is larger than the ${entry.size} bytes its manifest declares`))
+      if (got > maxBytes) return cb(new Error(`${drivePath} went over the ${maxBytes} byte limit`))
+      h.update(chunk)
       onProgress?.({ path: drivePath, downloaded: got, size: total })
       cb(null, chunk)
     }
