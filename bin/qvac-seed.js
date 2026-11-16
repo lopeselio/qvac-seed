@@ -180,10 +180,22 @@ async function main (argv) {
       } else {
         if (!path) throw new Error('fetch needs a file path: pear://<key>/<file>')
         const out = resolve(values.out ?? basename(path))
-        const res = await fetchFile(drive, path, out, {
-          requireManifest: !values['no-verify'],
-          onProgress: progressLine(`fetching ${basename(path)}`)
-        })
+        // Ctrl+C cancels the download and removes the partial file.
+        const cancel = new AbortController()
+        const onSignal = () => cancel.abort(new Error('Cancelled'))
+        process.once('SIGINT', onSignal)
+        process.once('SIGTERM', onSignal)
+        let res
+        try {
+          res = await fetchFile(drive, path, out, {
+            requireManifest: !values['no-verify'],
+            onProgress: progressLine(`fetching ${basename(path)}`),
+            signal: cancel.signal
+          })
+        } finally {
+          process.off('SIGINT', onSignal)
+          process.off('SIGTERM', onSignal)
+        }
         console.log(`${res.verified ? '✔ verified' : '⚠ unverified'} ${res.path} (${fmtBytes(res.size)}, sha256 ${res.sha256})`)
       }
     } finally {
