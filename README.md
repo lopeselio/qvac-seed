@@ -72,6 +72,17 @@ await seedDrives(swarm, [drive])
 console.log('share this:', url)
 ```
 
+`fetchFile(drive, path, outFile, options)` verifies the download against the manifest and takes:
+
+| Option | What it does |
+|---|---|
+| `maxBytes` | Refuse a file larger than this before downloading it |
+| `signal` | An `AbortSignal` that cancels the fetch, while waiting for a peer or mid-transfer |
+| `onProgress` | Called with `{ path, downloaded, size }` |
+| `requireManifest` | `false` to fetch a file the manifest doesn't list (unverified) |
+
+A download also stops by itself if the drive sends more bytes than its manifest declares.
+
 [`examples/load-with-qvac.js`](examples/load-with-qvac.js) loads a seeded base model and applies a seeded LoRA adapter with the QVAC SDK.
 
 ## Manifest format (v1)
