@@ -133,3 +133,41 @@ test('fetch refuses a file over maxBytes before downloading it', async (t) => {
   const res = await fetchFile(theirs, 'model.gguf', out, { maxBytes: 300_000 })
   assert.equal(res.verified, true)
 })
+
+test('fetch can be cancelled with an AbortSignal, before and during the transfer', async (t) => {
+  const { dir, a, b } = await setup(t)
+  const src = join(dir, 'model.gguf')
+  await writeFile(src, randomBytes(3_000_000))
+  const mine = await openWritableDrive(a, 'abortable')
+  await publishFile(mine, src)
+  const theirs = await openRemoteDrive(b, mine.key.toString('hex'))
+  const out = join(dir, 'out.gguf')
+
+  // Already aborted: nothing starts.
+  await assert.rejects(fetchFile(theirs, 'model.gguf', out, { signal: AbortSignal.abort() }), { name: 'AbortError' })
+  await assert.rejects(access(out + '.part'))
+
+  // Aborted on the first chunk: the transfer stops and the partial file goes.
+  const ac = new AbortController()
+  let chunks = 0
+  await assert.rejects(fetchFile(theirs, 'model.gguf', out, { signal: ac.signal, onProgress: () => { if (++chunks === 1) ac.abort() } }), { name: 'AbortError' })
+  await assert.rejects(access(out))
+  await assert.rejects(access(out + '.part'))
+
+  // The same drive still works afterwards.
+  const res = await fetchFile(theirs, 'model.gguf', out)
+  assert.equal(res.verified, true)
+  assert.equal(res.size, 3_000_000)
+})
+
+test('fetch waiting for a peer that never comes can be cancelled', async (t) => {
+  const { dir, b } = await setup(t)
+  // A drive key nobody is serving: without a signal this would wait for ever.
+  const nobody = await openRemoteDrive(b, 'ab'.repeat(32))
+  const done = nobody.findingPeers()
+  t.after(done)
+  const ac = new AbortController()
+  setTimeout(() => ac.abort(), 50)
+  await assert.rejects(fetchFile(nobody, 'model.gguf', join(dir, 'never.gguf'), { signal: ac.signal }), { name: 'AbortError' })
+  await assert.rejects(access(join(dir, 'never.gguf.part')))
+})
