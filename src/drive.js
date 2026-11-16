@@ -86,6 +86,16 @@ export async function publishFile (drive, file, { as, meta = {}, onProgress } = 
   return { url: formatPearUrl(drive.key, path), entry: findEntry(next, path) }
 }
 
+/** Reject as soon as the signal aborts, even if the promise itself can't be cancelled. */
+function abortable (promise, signal) {
+  if (!signal) return promise
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(signal.reason)
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort))
+  })
+}
+
 /**
  * Download a file from a drive to disk, verifying size and sha256 against the
  * manifest. Writes to a temp file and only renames on success, so a bad
@@ -94,15 +104,19 @@ export async function publishFile (drive, file, { as, meta = {}, onProgress } = 
  * The download stops as soon as it passes the size the manifest declares, so a
  * drive can't fill the disk by sending more than it promised. `maxBytes` lets
  * the caller refuse a large file before any of it is downloaded.
+ *
+ * `signal` (an AbortSignal) cancels the call at any point: while waiting for a
+ * peer, or mid-transfer. The temp file is removed either way.
  */
-export async function fetchFile (drive, path, outFile, { onProgress, requireManifest = true, maxBytes = Infinity } = {}) {
+export async function fetchFile (drive, path, outFile, { onProgress, requireManifest = true, maxBytes = Infinity, signal } = {}) {
+  signal?.throwIfAborted()
   const drivePath = toDrivePath(path)
-  const manifest = await readManifest(drive)
+  const manifest = await abortable(readManifest(drive), signal)
   const entry = manifest && findEntry(manifest, drivePath)
   if (requireManifest && !entry) {
     throw new Error(`${drivePath} is not listed in the drive manifest (use --no-verify to skip)`)
   }
-  const fileEntry = await drive.entry(drivePath, { wait: true })
+  const fileEntry = await abortable(drive.entry(drivePath, { wait: true }), signal)
   if (!fileEntry) throw new Error(`${drivePath} not found in drive`)
 
   const total = entry?.size ?? fileEntry.value.blob?.byteLength ?? 0
@@ -123,7 +137,7 @@ export async function fetchFile (drive, path, outFile, { onProgress, requireMani
     }
   })
   try {
-    await pipeline(drive.createReadStream(drivePath, { wait: true }), tap, createWriteStream(tmp))
+    await pipeline(drive.createReadStream(drivePath, { wait: true }), tap, createWriteStream(tmp), { signal })
     const sha256 = h.digest('hex')
     if (entry && (entry.sha256 !== sha256 || entry.size !== got)) {
       throw new Error(`Integrity check failed for ${drivePath}: expected ${entry.sha256}, got ${sha256}`)
