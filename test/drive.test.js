@@ -97,3 +97,39 @@ test('fetch refuses unlisted files unless verification is disabled', async (t) =
   const res = await fetchFile(theirs, 'loose.bin', join(dir, 'l2'), { requireManifest: false })
   assert.equal(res.verified, false)
 })
+
+test('fetch stops when a drive sends more than its manifest declares', async (t) => {
+  const { dir, a, b } = await setup(t)
+  const mine = await openWritableDrive(a, 'oversized')
+  const payload = randomBytes(2_000_000)
+  await mine.put('/big.gguf', payload)
+  // The manifest claims 1000 bytes; the file is 2 MB.
+  const lie = upsertEntry({ version: 1, name: 'x', files: [] }, { path: '/big.gguf', size: 1000, sha256: 'f'.repeat(64) })
+  await mine.put(MANIFEST_PATH, serializeManifest(lie))
+
+  const theirs = await openRemoteDrive(b, mine.key.toString('hex'))
+  const out = join(dir, 'big.gguf')
+  let seen = 0
+  await assert.rejects(fetchFile(theirs, 'big.gguf', out, { onProgress: (p) => { seen = p.downloaded } }), /larger than the 1000 bytes its manifest declares/)
+  assert.equal(seen, 0, 'no chunk past the declared size is accepted')
+  await assert.rejects(access(out))
+  await assert.rejects(access(out + '.part'))
+})
+
+test('fetch refuses a file over maxBytes before downloading it', async (t) => {
+  const { dir, a, b } = await setup(t)
+  const src = join(dir, 'model.gguf')
+  await writeFile(src, randomBytes(300_000))
+  const mine = await openWritableDrive(a, 'capped')
+  await publishFile(mine, src)
+
+  const theirs = await openRemoteDrive(b, mine.key.toString('hex'))
+  const out = join(dir, 'out.gguf')
+  let progressed = false
+  await assert.rejects(fetchFile(theirs, 'model.gguf', out, { maxBytes: 100_000, onProgress: () => { progressed = true } }), /300000 bytes, over the 100000 byte limit/)
+  assert.equal(progressed, false)
+  await assert.rejects(access(out + '.part'))
+  // Under the limit it downloads as usual.
+  const res = await fetchFile(theirs, 'model.gguf', out, { maxBytes: 300_000 })
+  assert.equal(res.verified, true)
+})
